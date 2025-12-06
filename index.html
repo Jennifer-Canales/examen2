@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Sistema Biblioteca — Devolución y Suspensión</title>
+  <style>
+    :root{
+      --primary:#28be78;
+      --muted:#6b7280;
+      --card:#ffffff;
+      --bg:#f3f6fb;
+      --danger:#992121;
+      --success:#16a34a;
+      --glass: rgba(255,255,255,0.65);
+      --shadow: 0 6px 18px rgba(11,105,255,0.06);
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background: linear-gradient(180deg, #eef6ff 0%, var(--bg) 100%);
+      color:#111827;
+      -webkit-font-smoothing:antialiased;
+      min-height:100vh;
+      padding:32px;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+    }
+
+    .app{
+      width:100%;
+      max-width:1100px;
+      background:var(--glass);
+      border-radius:14px;
+      padding:26px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(11,105,255,0.06);
+    }
+
+    header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:16px;
+      margin-bottom:18px;
+    }
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 420px;
+      gap:18px;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:12px;
+      padding:16px;
+      box-shadow: 0 6px 18px rgba(17,24,39,0.04);
+      border: 1px solid rgba(16,24,40,0.04);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:14px;
+    }
+    thead th{
+      text-align:left;
+      font-size:12px;
+      color:var(--muted);
+      padding-bottom:8px;
+    }
+    tbody td{
+      padding:10px 6px;
+      vertical-align:middle;
+      border-top:1px solid #f1f5f9;
+    }
+    .muted{color:var(--muted);font-size:13px}
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:8px;
+      border:0;
+      cursor:pointer;
+      font-weight:600;
+      font-size:13px;
+    }
+    .btn-primary{background:var(--primary); color:white; box-shadow: 0 6px 14px rgba(11,105,255,0.12);}
+    .btn-danger{background:var(--danger); color:white;}
+    .btn-ghost{background:transparent;border:1px solid #e6eefc;color:var(--primary);}
+
+    .status{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+    }
+    .status.active{background: rgba(16,185,129,0.12); color:var(--success);}
+    .status.suspended{background: rgba(239,68,68,0.08); color:var(--danger);}
+
+    .small{font-size:12px;color:var(--muted)}
+    .row{display:flex;gap:12px;align-items:center}
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      margin-bottom:8px;
+    }
+    input[type="date"], input[type="text"], select {
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid #e6eefc;
+      font-size:14px;
+    }
+    footer{margin-top:14px;color:var(--muted);font-size:12px;text-align:center}
+
+    /* responsive */
+    @media (max-width:980px){
+      .grid{grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" role="main" aria-labelledby="title">
+    <header>
+      <div>
+        <h1 id="title">Biblioteca · Gestión de devoluciones version3</h1>
+        <p class="lead">Al devolver un libro se verifica si el préstamo está vencido. Si lo está, el socio queda suspendido 15 días.</p>
+      </div>
+      <div class="small muted">Demo local — guarda datos en <code>localStorage</code></div>
+    </header>
+
+    <section class="grid">
+      <!-- Left: préstamos -->
+      <div class="card" aria-label="Lista de préstamos activos">
+        <h2 style="margin-top:0;margin-bottom:8px">Préstamos activos</h2>
+        <div class="small muted" style="margin-bottom:12px">Haz clic en <strong>Devolver</strong> para procesar la devolución.</div>
+
+        <table aria-describedby="préstamos">
+          <thead>
+            <tr>
+              <th>Préstamo #</th>
+              <th>Socio</th>
+              <th>Libro</th>
+              <th>Vencimiento</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="loansBody">
+            <!-- llenado por JS -->
+          </tbody>
+        </table>
+        <div style="margin-top:12px" class="row">
+          <button class="btn btn-ghost" id="seedBtn">Cargar datos de ejemplo</button>
+          <button class="btn" id="clearBtn">Limpiar datos</button>
+        </div>
+      </div>
+
+      <!-- Right: socio y acciones -->
+      <aside class="card" aria-label="Panel socio">
+        <h3 style="margin-top:0">Panel de socio</h3>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <label for="selectMember" class="small muted">Seleccionar socio</label>
+        </div>
+        <div style="margin-top:8px" class="field">
+          <select id="selectMember"></select>
+        </div>
+
+        <div id="memberCard" style="margin-top:10px;padding:12px;border-radius:10px;background:#f8fafc">
+          <!-- info socio -->
+        </div>
+
+        <hr style="margin:14px 0;border:none;border-top:1px solid #edf2f7">
+
+        <div style="margin-top:6px">
+          <h4 style="margin:0 0 8px 0">Simular nuevo préstamo</h4>
+          <div class="field">
+            <input id="newBook" type="text" placeholder="Título del libro (ej: Matemática II)">
+            <label class="small muted">Selecciona fecha de vencimiento</label>
+            <input id="dueDate" type="date">
+          </div>
+          <div class="row">
+            <button id="createLoan" class="btn btn-primary">Crear préstamo</button>
+          </div>
+        </div>
+        <footer>
+          <div id="message" style="margin-top:10px;"></div>
+        </footer>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    // ======== DATA MODEL (localStorage) ========
+    const LS_KEYS = {
+      MEMBERS: 'biblioteca_members_v1',
+      LOANS: 'biblioteca_loans_v1'
+    };
+
+    // Utilities de fecha
+    const todayISO = (d = new Date()) => {
+      const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      return dt.toISOString().slice(0,10);
+    };
+    const addDays = (dateISO, days) => {
+      const d = new Date(dateISO + 'T00:00:00');
+      d.setDate(d.getDate() + days);
+      return todayISO(d);
+    };
+    const dateIsAfter = (aISO, bISO) => {
+      return new Date(aISO+'T00:00:00') > new Date(bISO+'T00:00:00');
+    };
+    const dateIsBefore = (aISO, bISO) => {
+      return new Date(aISO+'T00:00:00') < new Date(bISO+'T00:00:00');
+    };
+
+    // Crea datos iniciales de ejemplo
+    function seedData(){
+      const members = [
+        { id: 2345, name: "María López", suspendedUntil: null }, // ejemplo del enunciado
+        { id: 1001, name: "Juan Pérez", suspendedUntil: null }
+      ];
+      const loans = [
+        // préstamo vencido
+        { id: 1, memberId: 2345, bookTitle: "Matemática II", dueDate: addDays(todayISO(), -7), returned: false },
+        // préstamo dentro de tiempo
+        { id: 2, memberId: 1001, bookTitle: "Historia Universal", dueDate: addDays(todayISO(), 5), returned: false }
+      ];
+      localStorage.setItem(LS_KEYS.MEMBERS, JSON.stringify(members));
+      localStorage.setItem(LS_KEYS.LOANS, JSON.stringify(loans));
+      showMessage("Datos de ejemplo cargados.", false);
+      renderAll();
+    }
+
+    function clearData(){
+      localStorage.removeItem(LS_KEYS.MEMBERS);
+      localStorage.removeItem(LS_KEYS.LOANS);
+      showMessage("Datos eliminados.", false);
+      renderAll();
+    }
+
+    function getMembers(){
+      const raw = localStorage.getItem(LS_KEYS.MEMBERS);
+      return raw ? JSON.parse(raw) : [];
+    }
+    function getLoans(){
+      const raw = localStorage.getItem(LS_KEYS.LOANS);
+      return raw ? JSON.parse(raw) : [];
+    }
+    function saveMembers(m){ localStorage.setItem(LS_KEYS.MEMBERS, JSON.stringify(m)); }
+    function saveLoans(l){ localStorage.setItem(LS_KEYS.LOANS, JSON.stringify(l)); }
+
+    // ======== RENDER ========
+    const loansBody = document.getElementById('loansBody');
+    const selectMember = document.getElementById('selectMember');
+    const memberCard = document.getElementById('memberCard');
+    const newBookInput = document.getElementById('newBook');
+    const dueDateInput = document.getElementById('dueDate');
+    const createLoanBtn = document.getElementById('createLoan');
+    const messageDiv = document.getElementById('message');
+
+    function renderAll(){
+      renderLoans();
+      renderMembersSelect();
+      renderMemberCard();
+    }
+
+    function renderLoans(){
+      const loans = getLoans();
+      loansBody.innerHTML = '';
+      if (loans.length === 0){
+        loansBody.innerHTML = '<tr><td colspan="5" class="muted">No hay préstamos activos.</td></tr>';
+        return;
+      }
+      loans.forEach(loan => {
+        if (loan.returned) return; // omitidos los ya devueltos
+        const tr = document.createElement('tr');
+
+        const member = getMembers().find(m => m.id === loan.memberId);
+        tr.innerHTML = `
+          <td>#${loan.id}</td>
+          <td>${member ? escapeHtml(member.name) + " (ID: " + member.id + ")" : "—"}</td>
+          <td>${escapeHtml(loan.bookTitle)}</td>
+          <td>${loan.dueDate}</td>
+          <td>
+            <button class="btn btn-primary" onclick="returnBook(${loan.id})">Devolver</button>
+          </td>
+        `;
+        loansBody.appendChild(tr);
+      });
+    }
+
+    function renderMembersSelect(){
+      const members = getMembers();
+      selectMember.innerHTML = '';
+      if (members.length === 0){
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '— sin socios —';
+        selectMember.appendChild(opt);
+        return;
+      }
+      members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name + ' (ID: ' + m.id + ')';
+        selectMember.appendChild(opt);
+      });
+      if (!selectMember.value) selectMember.value = members[0].id;
+    }
+
+    function renderMemberCard(){
+      const members = getMembers();
+      if (members.length === 0){
+        memberCard.innerHTML = '<div class="muted">No hay socios registrados. Usa "Cargar datos de ejemplo".</div>';
+        return;
+      }
+      const id = parseInt(selectMember.value || members[0].id,10);
+      const m = members.find(x=>x.id === id);
+      if (!m) {
+        memberCard.innerHTML = '<div class="muted">Socio no encontrado.</div>';
+        return;
+      }
+
+      const suspended = m.suspendedUntil && dateIsAfter(m.suspendedUntil, todayISO());
+      const statusSpan = suspended
+        ? `<span class="status suspended">Suspendido hasta ${m.suspendedUntil}</span>`
+        : `<span class="status active">Activo</span>`;
+
+      // prestamos activos del socio
+      const loans = getLoans().filter(l => l.memberId === m.id && !l.returned);
+      const loansHtml = loans.length === 0
+        ? '<div class="small muted">No tiene préstamos activos.</div>'
+        : `<ul>${loans.map(l => `<li>#${l.id} — ${escapeHtml(l.bookTitle)} (vence ${l.dueDate})</li>`).join('')}</ul>`;
+
+      memberCard.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:800">${escapeHtml(m.name)}</div>
+            <div class="small muted">ID: ${m.id}</div>
+          </div>
+          <div>${statusSpan}</div>
+        </div>
+        <div style="margin-top:10px">${loansHtml}</div>
+        <div style="margin-top:10px" class="small muted">Si el socio está suspendido no podrá pedir préstamos hasta la fecha indicada.</div>
+        <div style="margin-top:12px;">
+          <button class="btn btn-ghost" onclick="liftSuspension(${m.id})">Quitar suspensión (administrador)</button>
+        </div>
+      `;
+    }
+
+    // ======== LOGIC: Devolución y suspensión ========
+    window.returnBook = function(loanId){
+      const loans = getLoans();
+      const loan = loans.find(l => l.id === loanId);
+      if (!loan) { showMessage("Préstamo no encontrado.", true); return; }
+      if (loan.returned) { showMessage("El préstamo ya fue devuelto.", true); return; }
+
+      // Simulamos la fecha real de devolución como 'hoy'
+      const returnDate = todayISO();
+      const dueDate = loan.dueDate;
+
+      // Marcar como devuelto
+      loan.returned = true;
+      loan.returnDate = returnDate;
+      saveLoans(loans);
+
+      // Si la devolución es posterior a la fecha de vencimiento -> aplicar suspensión
+      if (dateIsAfter(returnDate, dueDate)) {
+        const members = getMembers();
+        const member = members.find(m => m.id === loan.memberId);
+        if (member) {
+          // 15 días de suspensión a partir de hoy
+          member.suspendedUntil = addDays(returnDate, 15);
+          saveMembers(members);
+          showMessage(`La devolución está VENCIDA (vencía el ${dueDate}). El socio queda suspendido hasta ${member.suspendedUntil}.`, true);
+        } else {
+          showMessage("Socio no encontrado para aplicar suspensión.", true);
+        }
+      } else {
+        showMessage(`Devolución procesada correctamente. (vence: ${dueDate})`, false);
+      }
+
+      renderAll();
+    };
+
+    // Permite crear un nuevo préstamo (solo demo)
+    createLoanBtn.addEventListener('click', () => {
+      const title = newBookInput.value.trim();
+      const dueDate = dueDateInput.value;
+      const memberId = parseInt(selectMember.value || 0, 10);
+      if (!title || !dueDate || !memberId) { showMessage("Completa título, fecha de vencimiento y socio.", true); return; }
+
+      // verificamos si el socio está suspendido
+      const members = getMembers();
+      const member = members.find(m => m.id === memberId);
+      if (member && member.suspendedUntil && dateIsAfter(member.suspendedUntil, todayISO())) {
+        showMessage(`El socio está suspendido hasta ${member.suspendedUntil} y no puede solicitar préstamos.`, true);
+        return;
+      }
+
+      const loans = getLoans();
+      const newId = loans.length ? Math.max(...loans.map(l=>l.id)) + 1 : 1;
+      loans.push({ id: newId, memberId: memberId, bookTitle: title, dueDate: dueDate, returned: false });
+      saveLoans(loans);
+      newBookInput.value = '';
+      dueDateInput.value = '';
+      showMessage("Préstamo creado correctamente.", false);
+      renderAll();
+    });
+
+    // Admin: quitar suspensión
+    window.liftSuspension = function(memberId){
+      const members = getMembers();
+      const m = members.find(x => x.id === memberId);
+      if (!m) { showMessage("Socio no encontrado.", true); return; }
+      m.suspendedUntil = null;
+      saveMembers(members);
+      showMessage("Suspensión eliminada manualmente.", false);
+      renderAll();
+    };
+
+    // botones seed/clear
+    document.getElementById('seedBtn').addEventListener('click', seedData);
+    document.getElementById('clearBtn').addEventListener('click', clearData);
+    selectMember.addEventListener('change', renderMemberCard);
+
+    // helper UI
+    function showMessage(text, isError){
+      messageDiv.innerHTML = `<div style="color:${isError? 'var(--danger)':'var(--primary)'}">${escapeHtml(text)}</div>`;
+      setTimeout(()=>{ messageDiv.innerHTML = ''; }, 7000);
+    }
+
+    function escapeHtml(s){
+      return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+    }
+
+    // inicialización
+    function init(){
+      // si no hay datos cargados, no hacemos seed automático (dejo control al usuario)
+      renderAll();
+    }
+
+    init();
+  </script>
+</body>
+</html>
